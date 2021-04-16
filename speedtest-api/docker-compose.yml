@@ -1,0 +1,12 @@
+version: "3"
+services:
+    speedtest-api:
+        build: 
+            context: .
+            dockerfile: ./Dockerfile
+        restart: always
+        mem_limit: 16m
+        ports:
+            - 9096:9096
+        environment:
+            ARCH: armv7l
