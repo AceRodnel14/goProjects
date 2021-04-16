@@ -72,14 +72,16 @@ func performSpeedtest() (result SpeedtestResult) {
 
 		if t.Sub(result.TimeStamp).Seconds() > 600 {
 			cmd.Run()
+			result = parseJson(path)
 			return result
 		}
 
 		if t.Sub(result.TimeStamp).Seconds() > 60 {
 			cmd.Start()
+			result = parseJson(path)
 			return result
 		}
-
+		result = parseJson(path)
 		return result
 
 	}
