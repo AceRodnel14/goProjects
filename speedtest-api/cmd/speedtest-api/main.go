@@ -1,16 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
-	"time"
-
-	"encoding/json"
-	"io/ioutil"
 	"os/exec"
-
-	"log"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -32,15 +30,15 @@ type Latency struct {
 }
 
 type Stats struct {
-	Bandwidth int `json:"bandwidth"`
+	Bandwidth float64 `json:"bandwidth"`
 }
 
 type outputData struct {
 	TimeStamp     string  `json:"timestamp"`
 	Jitter        float64 `json:"jitter"`
 	Latency       float64 `json:"latency"`
-	DownBandwidth int     `json:"down_bandwidth"`
-	UpBandwidth   int     `json:"up_bandwidth"`
+	DownBandwidth float64 `json:"down_bandwidth"`
+	UpBandwidth   float64 `json:"up_bandwidth"`
 }
 
 func main() {
@@ -48,46 +46,13 @@ func main() {
 	router := httprouter.New()
 	router.GET("/metrics", speedtestExport())
 
-	log.Fatal(http.ListenAndServe(":9096", router))
+	log.Fatal(http.ListenAndServe(":9001", router))
 
 }
 
-func speedtestExport() func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		w.Header().Set("Content-Type", "application/json")
-		result := performSpeedtest()
-		list := printData(result)
-		json.NewEncoder(w).Encode(list)
-	}
-}
-
-func performSpeedtest() (result SpeedtestResult) {
-	cmd := exec.Command("/bin/sh", "/exec/run")
-	path := "/resources/report.json"
-
-	if fileExists(path) {
-		result = parseJson(path)
-		loc, _ := time.LoadLocation("UTC")
-		t := time.Now().In(loc)
-
-		if t.Sub(result.TimeStamp).Seconds() > 600 {
-			cmd.Run()
-			result = parseJson(path)
-			return result
-		}
-
-		if t.Sub(result.TimeStamp).Seconds() > 60 {
-			cmd.Start()
-			result = parseJson(path)
-			return result
-		}
-		result = parseJson(path)
-		return result
-
-	}
-	cmd.Run()
-	result = parseJson(path)
-	return result
+func changeFormat(t time.Time) string {
+	output := t.Format(layoutISO8601)
+	return output
 }
 
 func parseJson(path string) (result SpeedtestResult) {
@@ -103,23 +68,55 @@ func parseJson(path string) (result SpeedtestResult) {
 	return result
 }
 
+func performSpeedtest() (result SpeedtestResult) {
+	cmd := exec.Command("/bin/sh", "/exec/run")
+	path := "/resources/report.json"
+	// if fileExists(path) {
+	// 	result = parseJson(path)
+	// 	loc, _ := time.LoadLocation("UTC")
+	// 	t := time.Now().In(loc)
+
+	// 	if t.Sub(result.TimeStamp).Seconds() > 600 {
+	// 		cmd.Run()
+	// 		result = parseJson(path)
+	// 		return result
+	// 	}
+
+	// 	if t.Sub(result.TimeStamp).Seconds() > 30 {
+	// 		cmd.Start()
+	// 		result = parseJson(path)
+	// 		return result
+	// 	}
+	// 	result = parseJson(path)
+	// 	return result
+
+	// }
+	cmd.Run()
+	result = parseJson(path)
+	return result
+}
+
 func printData(result SpeedtestResult) outputData {
 	list := outputData{
 		TimeStamp:     changeFormat(result.TimeStamp),
 		Jitter:        result.Ping.Jitter,
 		Latency:       result.Ping.Latency,
-		DownBandwidth: result.Download.Bandwidth,
-		UpBandwidth:   result.Upload.Bandwidth,
+		DownBandwidth: ((result.Download.Bandwidth * 8) / 1000000),
+		UpBandwidth:   ((result.Upload.Bandwidth * 8) / 1000000),
 	}
 	return list
 }
 
-func changeFormat(t time.Time) string {
-	output := t.Format(layoutISO8601)
-	return output
+func speedtestExport() func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.Header().Set("Content-Type", "application/json")
+		result := performSpeedtest()
+		list := printData(result)
+		json.NewEncoder(w).Encode(list)
+	}
 }
 
-func fileExists(filename string) bool {
-	_, err := os.Stat(filename)
-	return !os.IsNotExist(err)
-}
+// func fileExists(filename string) bool {
+// 	_, err := os.Stat(filename)
+// 	return !os.IsNotExist(err)
+// }

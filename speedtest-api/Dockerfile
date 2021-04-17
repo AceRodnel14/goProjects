@@ -1,4 +1,4 @@
-FROM golang:alpine as builder
+FROM golang:alpine as build
 
 WORKDIR /src
 
@@ -27,18 +27,18 @@ RUN mkdir -p /src/resources
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /out/server ./cmd/speedtest-api/
 
-FROM alpine AS bin
+FROM alpine AS deploy
 
-COPY --from=builder /etc/passwd /etc/passwd
-COPY --from=builder /etc/group /etc/group
+COPY --from=build /etc/passwd /etc/passwd
+COPY --from=build /etc/group /etc/group
 
-COPY --from=builder /src/exec/ /exec/
-COPY --from=builder /src/resources /resources/
+COPY --from=build /src/exec/ /exec/
+COPY --from=build /src/resources /resources/
 RUN chown -R speedtest:speedtest /resources
 
 USER speedtest:speedtest
 
-COPY --from=builder /out/server ./server
-EXPOSE 9096
+COPY --from=build /out/server ./server
+EXPOSE 9876
 
 ENTRYPOINT  [ "/server" ]

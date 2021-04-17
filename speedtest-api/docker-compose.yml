@@ -1,4 +1,5 @@
 version: "3"
+
 services:
     speedtest-api:
         build: 
@@ -7,6 +8,4 @@ services:
         restart: always
         mem_limit: 16m
         ports:
-            - 9096:9096
-        environment:
-            ARCH: armv7l
+            - 9001:9001
