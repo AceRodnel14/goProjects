@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
-	layoutISO8601 = "2006-01-02T15:04:05Z"
+	layoutISO = "2006-01-02T15:04:05Z"
 )
 
 type SpeedtestResult struct {
@@ -41,17 +43,47 @@ type outputData struct {
 	UpBandwidth   float64 `json:"up_bandwidth"`
 }
 
+var (
+	jitter = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "jitter",
+			Help: "Network jitter in mS",
+		})
+	latency = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "latency",
+			Help: "Network latency in mS",
+		})
+
+	downSpeed = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "download_speed",
+			Help: "This is the download speed in Mbps",
+		})
+	upSpeed = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "upload_speed",
+			Help: "This is the upload speed in Mbps",
+		})
+)
+
 func main() {
 
 	router := httprouter.New()
-	router.GET("/metrics", speedtestExport())
+	router.GET("/metrics", speedtestExport("prom", promhttp.Handler()))
+	router.GET("/metrics/json", speedtestExport("json", nil))
+
+	prometheus.MustRegister(jitter)
+	prometheus.MustRegister(latency)
+	prometheus.MustRegister(downSpeed)
+	prometheus.MustRegister(upSpeed)
 
 	log.Fatal(http.ListenAndServe(":9001", router))
 
 }
 
 func changeFormat(t time.Time) string {
-	output := t.Format(layoutISO8601)
+	output := t.Format(layoutISO)
 	return output
 }
 
@@ -107,12 +139,21 @@ func printData(result SpeedtestResult) outputData {
 	return list
 }
 
-func speedtestExport() func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func speedtestExport(format string, h http.Handler) func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-		w.Header().Set("Content-Type", "application/json")
 		result := performSpeedtest()
 		list := printData(result)
-		json.NewEncoder(w).Encode(list)
+		if format == "prom" {
+			jitter.Set(list.Jitter)
+			latency.Set(list.Latency)
+			upSpeed.Set(list.UpBandwidth)
+			downSpeed.Set(list.DownBandwidth)
+			h.ServeHTTP(w, r)
+		}
+		if format == "json" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(list)
+		}
 	}
 }
 
