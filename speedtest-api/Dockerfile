@@ -25,7 +25,7 @@ RUN export ARCH=$(uname -m) && \
     rm -f /srcexec/speedtest.md /srcexec/speedtest.5 /srcexec/speedtest.tgz
 RUN mkdir -p /src/resources
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /out/server ./cmd/speedtest-api/
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /out/server ./service/
 
 FROM alpine AS deploy
 

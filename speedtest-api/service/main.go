@@ -8,20 +8,19 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
 
-const (
-	layoutISO = "2006-01-02T15:04:05Z"
-)
+// const (
+// 	layoutISO = "2006-01-02T15:04:05Z"
+// )
 
 type SpeedtestResult struct {
-	TimeStamp time.Time `json:"timestamp"`
-	Ping      Latency   `json:"ping"`
-	Download  Stats     `json:"download"`
-	Upload    Stats     `json:"upload"`
+	// TimeStamp time.Time `json:"timestamp"`
+	Ping     Latency `json:"ping"`
+	Download Stats   `json:"download"`
+	Upload   Stats   `json:"upload"`
 }
 
 type Latency struct {
@@ -34,11 +33,11 @@ type Stats struct {
 }
 
 type outputData struct {
-	TimeStamp     string  `json:"timestamp"`
+	// TimeStamp     string  `json:"timestamp"`
 	Jitter        float64 `json:"jitter"`
 	Latency       float64 `json:"latency"`
-	DownBandwidth float64 `json:"down_bandwidth"`
-	UpBandwidth   float64 `json:"up_bandwidth"`
+	DownBandwidth float64 `json:"download_speed"`
+	UpBandwidth   float64 `json:"upload_speed"`
 }
 
 func main() {
@@ -51,10 +50,10 @@ func main() {
 
 }
 
-func changeFormat(t time.Time) string {
-	output := t.Format(layoutISO)
-	return output
-}
+// func changeFormat(t time.Time) string {
+// 	output := t.Format(layoutISO)
+// 	return output
+// }
 
 func parseJson(path string) (result SpeedtestResult) {
 	jsonFile, err := os.Open(path)
@@ -99,7 +98,7 @@ func performSpeedtest() (result SpeedtestResult) {
 
 func printData(result SpeedtestResult) outputData {
 	list := outputData{
-		TimeStamp:     changeFormat(result.TimeStamp),
+		// TimeStamp:     changeFormat(result.TimeStamp),
 		Jitter:        result.Ping.Jitter,
 		Latency:       result.Ping.Latency,
 		DownBandwidth: ((result.Download.Bandwidth * 8) / 1000000),
