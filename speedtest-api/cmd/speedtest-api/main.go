@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -43,40 +41,11 @@ type outputData struct {
 	UpBandwidth   float64 `json:"up_bandwidth"`
 }
 
-var (
-	jitter = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "jitter",
-			Help: "Network jitter in mS",
-		})
-	latency = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "latency",
-			Help: "Network latency in mS",
-		})
-
-	downSpeed = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "download_speed",
-			Help: "This is the download speed in Mbps",
-		})
-	upSpeed = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "upload_speed",
-			Help: "This is the upload speed in Mbps",
-		})
-)
-
 func main() {
 
 	router := httprouter.New()
-	router.GET("/metrics", speedtestExport("prom", promhttp.Handler()))
-	router.GET("/metrics/json", speedtestExport("json", nil))
-
-	prometheus.MustRegister(jitter)
-	prometheus.MustRegister(latency)
-	prometheus.MustRegister(downSpeed)
-	prometheus.MustRegister(upSpeed)
+	router.GET("/metrics", speedtestExport("prom"))
+	router.GET("/metrics/json", speedtestExport("json"))
 
 	log.Fatal(http.ListenAndServe(":9001", router))
 
@@ -139,16 +108,18 @@ func printData(result SpeedtestResult) outputData {
 	return list
 }
 
-func speedtestExport(format string, h http.Handler) func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func speedtestExport(format string) func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		result := performSpeedtest()
 		list := printData(result)
+
 		if format == "prom" {
-			jitter.Set(list.Jitter)
-			latency.Set(list.Latency)
-			upSpeed.Set(list.UpBandwidth)
-			downSpeed.Set(list.DownBandwidth)
-			h.ServeHTTP(w, r)
+			w.Header().Set("Content-Type", " text/plain; charset=utf-8")
+			output := "jitter %.2f\n" +
+				"latency %.2f\n" +
+				"download_speed %.2f\n" +
+				"upload_speed %.2f"
+			fmt.Fprintf(w, output, list.Jitter, list.Latency, list.DownBandwidth, list.UpBandwidth)
 		}
 		if format == "json" {
 			w.Header().Set("Content-Type", "application/json")
