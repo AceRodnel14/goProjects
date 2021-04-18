@@ -37,15 +37,14 @@ type outputData struct {
 	TimeStamp     string  `json:"timestamp"`
 	Jitter        float64 `json:"jitter"`
 	Latency       float64 `json:"latency"`
-	DownBandwidth float64 `json:"down_bandwidth"`
-	UpBandwidth   float64 `json:"up_bandwidth"`
+	DownBandwidth float64 `json:"download_speed"`
+	UpBandwidth   float64 `json:"upload_speed"`
 }
 
 func main() {
 
 	router := httprouter.New()
-	router.GET("/metrics", speedtestExport("prom"))
-	router.GET("/metrics/json", speedtestExport("json"))
+	router.GET("/metrics", speedtestExport())
 
 	log.Fatal(http.ListenAndServe(":9001", router))
 
@@ -108,23 +107,12 @@ func printData(result SpeedtestResult) outputData {
 	return list
 }
 
-func speedtestExport(format string) func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func speedtestExport() func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		result := performSpeedtest()
 		list := printData(result)
-
-		if format == "prom" {
-			w.Header().Set("Content-Type", " text/plain; charset=utf-8")
-			output := "jitter %.2f\n" +
-				"latency %.2f\n" +
-				"download_speed %.2f\n" +
-				"upload_speed %.2f"
-			fmt.Fprintf(w, output, list.Jitter, list.Latency, list.DownBandwidth, list.UpBandwidth)
-		}
-		if format == "json" {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(list)
-		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(list)
 	}
 }
 
