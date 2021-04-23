@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+    speedtest-api:
+        build: 
+            context: .
+            dockerfile: ./Dockerfile
+        restart: always
+        mem_limit: 16m
+        ports:
+            - 9001:9001
