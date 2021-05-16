@@ -16,8 +16,8 @@ type ShortcodeMedia struct {
 	Caption          Caption            `json:"edge_media_to_caption"`
 	Sidecar          Sidecar            `json:"edge_sidecar_to_children,omitempty"`
 	VideoURL         string             `json:"video_url,omitempty"`
-	Description      string             `json:"accessibility_caption,omitempty"`
 	Owner            Owner              `json:"owner,omitempty"`
+	ProductType      string             `json:"product_type,omitempty"`
 }
 
 type Dimensions struct {
@@ -39,7 +39,6 @@ type Node struct {
 	NodeDimensions   Dimensions         `json:"dimensions,omitempty"`
 	DisplayResources []DisplayResources `json:"display_resources,omitempty"`
 	VideoURL         string             `json:"video_url,omitempty"`
-	Description      string             `json:"accessibility_caption,omitempty"`
 }
 
 type Owner struct {

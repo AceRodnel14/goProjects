@@ -49,13 +49,15 @@ func main() {
 		postID := b.Graphql.ShortcodeMedia.Shortcode
 		childFolder := createChildFolder(parentFolder, postDate, postID)
 
-		postType := getPostType(b)
-		if postType == "GraphSidecar" {
+		saveInfoToJSON(b, childFolder, postID, postDate)
+
+		typename := getTypename(b)
+		if typename == "GraphSidecar" {
 			saveSidecar(b.Graphql.ShortcodeMedia.Sidecar, childFolder, postID)
 			logCurrStatus(listIndex, length)
 			continue
 		}
-		if postType == "GraphImage" {
+		if typename == "GraphImage" {
 			displayResources := b.Graphql.ShortcodeMedia.DisplayResources
 			dimensions := b.Graphql.ShortcodeMedia.Dimensions
 			for index := range displayResources {
@@ -67,7 +69,7 @@ func main() {
 			}
 			continue
 		}
-		if postType == "GraphVideo" {
+		if typename == "GraphVideo" {
 			saveVideo(b.Graphql.ShortcodeMedia.VideoURL, childFolder, postID)
 			logCurrStatus(listIndex, length)
 			continue
@@ -114,17 +116,19 @@ func saveImage(url string, savePath string, postID string) {
 	defer resp.Body.Close()
 
 	saveFile := savePath + "/" + postID + ".jpg"
-	imageFile, err := os.Create(saveFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer imageFile.Close()
+	if _, err := os.Stat(saveFile); os.IsNotExist(err) {
+		imageFile, err := os.Create(saveFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer imageFile.Close()
 
-	_, err = io.Copy(imageFile, resp.Body)
-	if err != nil {
-		log.Fatal(err)
+		_, err = io.Copy(imageFile, resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		printLog(string(postID + ".jpg was saved at folder " + savePath + "."))
 	}
-	printLog(string(postID + ".jpg was saved at folder " + savePath + "."))
 }
 
 func saveVideo(url string, savePath string, postID string) {
@@ -135,17 +139,89 @@ func saveVideo(url string, savePath string, postID string) {
 	defer resp.Body.Close()
 
 	saveFile := savePath + "/" + postID + ".mp4"
-	imageFile, err := os.Create(saveFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer imageFile.Close()
 
-	_, err = io.Copy(imageFile, resp.Body)
-	if err != nil {
-		log.Fatal(err)
+	if _, err := os.Stat(saveFile); os.IsNotExist(err) {
+		imageFile, err := os.Create(saveFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer imageFile.Close()
+
+		_, err = io.Copy(imageFile, resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		printLog(string(postID + ".mp4 was saved at folder " + savePath + "."))
 	}
-	printLog(string(postID + ".mp4 was saved at folder " + savePath + "."))
+}
+
+func saveInfoToJSON(b Body, savePath string, postID string, uploadDate string) {
+	saveFile := savePath + "/" + postID + ".json"
+
+	if _, err := os.Stat(saveFile); os.IsNotExist(err) {
+		username := b.Graphql.ShortcodeMedia.Owner.Username
+		displayName := b.Graphql.ShortcodeMedia.Owner.DisplayName
+		postCaption := b.Graphql.ShortcodeMedia.Caption.Edges[0].Node.Text
+		postType := getPostType(b)
+		itemCount := getItemCount(b)
+
+		JSONCaption := CaptionObject{
+			OwnerInfo: CaptionOwnerInfo{
+				Username:    username,
+				DisplayName: displayName,
+			},
+			UploadDate:  uploadDate,
+			PostCaption: postCaption,
+			PostType:    postType,
+			Count:       itemCount,
+		}
+
+		captionFile, err := json.MarshalIndent(JSONCaption, "", "	")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = ioutil.WriteFile(saveFile, captionFile, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		printLog(string("Saved IG Post Information at " + saveFile + "."))
+	}
+}
+
+func getPostType(b Body) string {
+	typename := getTypename(b)
+	var postType string
+	if typename == "GraphVideo" {
+		if b.Graphql.ShortcodeMedia.ProductType == "igtv" {
+			postType = "IGTV"
+		}
+		if b.Graphql.ShortcodeMedia.ProductType == "feed" {
+			postType = "feed_video"
+		}
+	}
+	if typename == "GraphImage" {
+		postType = "feed_image"
+	}
+	if typename == "GraphSidecar" {
+		postType = "feed_sidecar"
+	}
+
+	return postType
+}
+
+func getItemCount(b Body) int {
+	typename := getTypename(b)
+	var itemCount int
+
+	if typename == "GraphImage" || typename == "GraphVideo" {
+		itemCount = 1
+	}
+	if typename == "GraphSidecar" {
+		itemCount = len(b.Graphql.ShortcodeMedia.Sidecar.Edges)
+	}
+
+	return itemCount
 }
 
 func createParentFolder(username string) string { // (b Body) string {
@@ -224,7 +300,7 @@ func getJSONData(url string) *json.Decoder {
 	return jsonResp
 }
 
-func getPostType(b Body) string {
+func getTypename(b Body) string {
 	return b.Graphql.ShortcodeMedia.Typename
 }
 
